@@ -1,18 +1,32 @@
 import { createSearch } from './search.js';
 import { Editor } from '@tiptap/core';
 import { EditorState } from '@tiptap/pm/state';
-import { extensions, unsupportedReason, safePreview, lineEndings, countCharacters, roundTripSafe } from './editor-core.js';
+import { extensions, unsupportedReason, safePreview, lineEndings, countCharacters, roundTripSafe, looksLikeMarkdown, pasteMarkdown, markdownWithInsertion } from './editor-core.js';
 
 const $ = id => document.getElementById(id);
-let raw = '', original = '', initialJson = '', saved = '', docId = '', eol = '\r\n', mode = 'edit', reason = '', zoom = 100;
-let suppress = false, changeTimer, outlineTimer, search;
+let raw = '', original = '', initialDoc = null, saved = '', docId = '', eol = '\r\n', mode = 'edit', reason = '', zoom = 100;
+let suppress = false, richStale = false, pending = false, dirty = false, characters = 0, inspected = null, parsed = null, changeTimer, outlineTimer, search;
 let focusScroll = 0, sourceSelection = [0, 0];
 const native = window.chrome?.webview;
 function post(message) { native?.postMessage({ ...message, docId }); }
-function snapshot() { clearTimeout(changeTimer); return raw; }
+// Rich edits only mark the text stale. Serializing the whole document waits for a pause or a reader.
+function syncRich() {
+  if (!richStale) return raw;
+  richStale = false;
+  raw = initialDoc && editor.state.doc.eq(initialDoc) ? original : matchFinalNewline(lineEndings(editor.getMarkdown(), eol));
+  return raw;
+}
+// The file keeps its original ending: a single final line break, or none.
+function matchFinalNewline(text) { return text && text.replace(/(?:\r\n|\r|\n)+$/, '') + (/(?:\r\n|\r|\n)$/.test(original) ? eol : ''); }
+function snapshot() { if (pending) flush(); return syncRich(); }
 function publish() {
-  clearTimeout(changeTimer);
-  changeTimer = setTimeout(() => post({ type: 'changed', text: raw }), 100);
+  pending = true;
+  if (setDirty(true)) publishViewState();
+  clearTimeout(changeTimer); changeTimer = setTimeout(flush, 300);
+}
+function flush() {
+  clearTimeout(changeTimer); pending = false;
+  post({ type: 'changed', text: syncRich() });
   updateLocal(); search?.refresh();
 }
 const editor = new Editor({
@@ -22,41 +36,64 @@ const editor = new Editor({
     handleDrop: () => true, // File paths are handled by the native host; do not embed dropped file data.
     handlePaste(view, event) {
       const text = event.clipboardData?.getData('text/plain');
-      if (text && /(^|\n)(#{1,6} |```|\|.+\||- \[[ x]\])/.test(text)) {
-        // Paste complex Markdown as source if it cannot be represented losslessly.
-        if (unsupportedReason(text)) {
-          event.preventDefault(); setMode('source');
-          $('source').setRangeText(text, $('source').selectionStart, $('source').selectionEnd, 'end');
-          sourceChanged(); return true;
-        }
-      }
-      return false;
+      if (!text || view.state.selection.$from.parent.type.spec.code || !looksLikeMarkdown(text)) return false;
+      event.preventDefault();
+      // Syntax the rich-text view cannot hold continues in source view, at the caret.
+      if (unsupportedReason(text)) pasteAsSource(text);
+      else view.dispatch(pasteMarkdown(editor, view.state.tr, text).scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
+      return true;
     },
   },
   onUpdate() {
     if (suppress) return;
-    raw = JSON.stringify(editor.getJSON()) === initialJson ? original : lineEndings(editor.getMarkdown(), eol);
-    if (raw && /(?:\r\n|\r|\n)$/.test(original) && !/(?:\r\n|\r|\n)$/.test(raw)) raw += eol;
-    publish();
+    richStale = true; publish();
   },
   onSelectionUpdate: () => updateFormat(),
 });
 
 function setRichText() {
+  // Keep the parse: inspect() checks the same text right afterwards.
+  parsed = { text: raw, json: editor.markdown.parse(raw) };
   suppress = true;
-  try { editor.commands.setContent(raw, { contentType: 'markdown', emitUpdate: false }); }
+  try { editor.commands.setContent(parsed.json, { emitUpdate: false }); }
   finally { suppress = false; }
-  original = raw; initialJson = JSON.stringify(editor.getJSON());
+  original = raw; initialDoc = editor.state.doc; richStale = false;
+}
+
+function pasteAsSource(text) {
+  const { from, to } = editor.state.selection;
+  const pasted = markdownWithInsertion(editor, from, to, lineEndings(text, '\n'));
+  syncRich();
+  // The textarea holds LF text, so the caret offset is counted without CR.
+  let caret;
+  if (pasted) { raw = matchFinalNewline(lineEndings(pasted.markdown, eol)); caret = pasted.offset; }
+  else { raw += lineEndings(text, eol); caret = lineEndings(raw, '\n').length; }
+  setMode('source');
+  const source = $('source'); source.focus({ preventScroll: true }); source.setSelectionRange(caret, caret);
+  revealSourceOffset(caret); publish();
+}
+
+function revealSourceOffset(offset) {
+  // The search mirror shares the textarea's wrapping, so it can locate a character offset.
+  const mirror = $('source-render'), marker = document.createElement('span'), scroll = $('scroll');
+  mirror.replaceChildren($('source').value.slice(0, offset), marker);
+  mirror.style.display = 'block'; mirror.style.visibility = 'hidden';
+  const top = marker.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
+  mirror.style.display = mirror.style.visibility = ''; mirror.replaceChildren();
+  scroll.scrollTop = Math.max(0, top - scroll.clientHeight * .35);
 }
 
 function inspect() {
+  if (inspected === syncRich()) return;
+  inspected = raw;
   reason = unsupportedReason(raw);
-  if (!reason && !roundTripSafe(editor, raw)) reason = '无法完整保存回 Markdown 的结构';
+  if (!reason && !roundTripSafe(editor, raw, parsed?.text === raw ? parsed.json : undefined)) reason = '无法完整保存回 Markdown 的结构';
   $('notice').textContent = reason ? `这份文档包含${reason}。当前用源码编辑以保留内容；专注可只读预览。` : '';
   $('notice').hidden = !reason;
 }
 
 function renderMode() {
+  syncRich();
   const focused = document.body.classList.contains('focus');
   $('notice').hidden = focused || !reason;
   document.body.classList.toggle('source', mode === 'source');
@@ -79,7 +116,7 @@ function setMode(next) {
 }
 
 function load(data) {
-  clearTimeout(changeTimer); docId = data.docId; raw = data.text; original = raw; saved = data.savedText ?? raw; eol = data.eol ?? '\r\n';
+  clearTimeout(changeTimer); pending = false; docId = data.docId; raw = data.text; original = raw; saved = data.savedText ?? raw; eol = data.eol ?? '\r\n';
   focusScroll = 0; sourceSelection = [0, 0];
   document.body.classList.toggle('focus', data.focus !== false);
   // Only image elements can access the document origin; no arbitrary local navigation.
@@ -87,14 +124,18 @@ function load(data) {
   // A new file starts its own undo history; Ctrl+Z must never restore another document.
   editor.view.updateState(EditorState.create({ schema: editor.schema, doc: editor.state.doc, plugins: editor.state.plugins }));
   inspect(); setMode(reason ? 'source' : 'edit');
-  $('scroll').scrollTop = 0; updateLocal(); publishViewState();
+  $('scroll').scrollTop = 0; publishViewState();
   if (document.body.classList.contains('focus')) $('preview').focus({ preventScroll: true });
   else if (mode === 'edit') editor.commands.focus('start', { scrollIntoView: false });
 }
 
+function setDirty(value) {
+  if (value === dirty) return false;
+  dirty = value; document.body.classList.toggle('dirty', value); return true;
+}
 function updateLocal() {
-  const dirty = raw !== saved;
-  document.body.classList.toggle('dirty', dirty);
+  setDirty(syncRich() !== saved);
+  characters = countCharacters(mode === 'source' ? raw : editor.getText());
   publishViewState();
   clearTimeout(outlineTimer); outlineTimer = setTimeout(updateOutline, 350);
 }
@@ -182,7 +223,7 @@ function appearance(data) {
 }
 function publishViewState() {
   post({ type: 'view-state', focus: document.body.classList.contains('focus'), outline: !$('outline').hidden && !document.body.classList.contains('focus'),
-    mode, dirty: raw !== saved, count: countCharacters(mode === 'source' ? raw : editor.getText()), zoom });
+    mode, dirty, count: characters, zoom });
 }
 function focusMode(on) {
   const wasFocused = document.body.classList.contains('focus');
@@ -270,5 +311,5 @@ native?.addEventListener('message', ({ data }) => {
   else if (data.type === 'status') status(data.text);
 });
 // Expose a narrow program-test interface, with no host filesystem access.
-window.moxi = { editor, load, setMode, getText: () => raw, getMode: () => mode, searchState: () => search.state() };
+window.moxi = { editor, load, setMode, getText: syncRich, getMode: () => mode, searchState: () => search.state() };
 post({ type: 'ready' });
