@@ -1,46 +1,73 @@
-<p align="center">
-  <img src="Moxi.App/Assets/MoXi.png" width="72" alt="MoXi icon">
-</p>
+<p align="center"><img src="Moxi.App/Assets/MoXi.png" width="80" alt="MoXi"></p>
 
-<h1 align="center">MoXi</h1>
-<p align="center"><strong>Markdown, with room to breathe.</strong></p>
-<p align="center">A lightweight Markdown reader and editor for Windows.</p>
+# MoXi
 
----
+**一份 .md，打开就该是排好版的样子。**
 
-Open a file. Settle into reading. Make a change when you need to.
+电脑里的 Markdown 越攒越多：项目的 README、随手记的笔记、从 AI 那里存下来的回答。想看一眼，手边的工具却都差点意思：记事本里满屏 `##` 和 `**`；代码编辑器得先等它启动，再去找预览按钮；笔记软件还要你先把文件导进它的库里。
 
-MoXi brings your Markdown into a quiet, focused window, with native Acrylic, soft cyan accents and thoughtfully spaced typography. Your documents stay ordinary files on your computer.
+MoXi 只做一件事：把一份 .md 好好地摆在你面前。拖进窗口、双击、按 Ctrl+O 都行，打开就是排好版的正文，工具都收着。读到一半想改个字，就地改；改完 Ctrl+S，存回去的还是那份普通的 .md，换哪个编辑器都照样能开。
 
-## Made for the page
+## 先读，再改
 
-- **Read first.** Files open in a clean focus view, with the tools tucked away.
-- **Edit naturally.** Work directly in formatted text, or switch to Markdown source.
-- **Keep your place.** Find every match and move through results without losing focus.
-- **Make room.** Text reflows as the window grows, while comfortable margins remain.
-- **Choose your light.** Day and dark themes keep reading comfortable.
-- **Stay local.** No account, cloud workspace or subscription. Open, edit and save your own `.md` files.
+- **打开就是阅读视图。** 正文排好，工具栏不露面。窗口拉宽，文字跟着铺开，两边始终留着舒服的白。F11 进出专注阅读。
+- **想改，点一下 μ。** 点底部的 μ 或按 Ctrl+/，阅读视图就变成可编辑的排版视图：标题还是标题，粗体还是粗体，直接在上面打字。再按一次，切到 Markdown 源码。
+- **工具栏只放常用的。** 标题、粗体、斜体、删除线、行内代码、列表、任务清单、引用、链接、代码块、表格、分隔线。表格里右键可以增删行列。
+- **粘进来就是格式。** 从 AI 的回答、代码编辑器或别的文档里复制一段 Markdown，粘贴下去就是排好的标题和列表，不会留下一串 `##` 和 `-`。粘在列表末尾，就接着这个列表往下排。
 
-Headings, lists, task checkboxes, tables, quotes, code and local images are all at home here. Syntax that cannot be safely edited as rich text stays available in source view.
+## 找得到，回得去
 
-## Get started
+- **查找会标出每一处。** Ctrl+F，所有匹配一起高亮。回车跳到下一处，Shift+回车回到上一处，光标一直留在搜索框里。
+- **长文档有目录。** Ctrl+Shift+O 打开大纲，点哪个标题就跳到哪里。
+- **字号随手调。** Ctrl+= 放大，Ctrl+- 缩小，Ctrl+0 还原，范围 70% 到 180%。
+- **链接接着读。** 链到另一份本地 .md，就在 MoXi 里打开；网页链接交给默认浏览器。阅读时直接点，编辑时按住 Ctrl 再点。
 
-MoXi is currently an early release for Windows. See [build instructions](CONTRIBUTING.md) to create a portable copy.
+## 不弄坏你的文件
 
-Run `MoXi.exe`, then drop in a Markdown file or press **Ctrl+O**. Click **μ** to start editing; press **Ctrl+S** to save.
+Markdown 是纯文本，大家用它，图的就是放心交给任何工具。所以 MoXi 首先保证不弄坏它。
 
-Requires **.NET 10 Desktop Runtime** and **Microsoft Edge WebView2 Runtime**. Native Acrylic is available on supported Windows 11 systems, with a solid-color fallback elsewhere.
+- **没改过，一个字节都不动。** 打开、阅读、切换视图都不会改写文件。真正改过的文档，保存时沿用原来的编码（UTF-8，或带 BOM 的 UTF-16）、BOM 和换行方式。
+- **认不出的编码，宁可不开。** 遇到 GBK 之类的旧编码，MoXi 会直接告诉你打不开，而不是给你一屏乱码，再让你存回去。
+- **排版视图装不下的，留在源码里。** front matter、内嵌 HTML、脚注、引用式链接、`$$` 公式，在排版视图里改了就存不回原样，所以这类文档直接在源码里编辑，阅读视图照常显示。粘贴这类内容也一样：自动切到源码，内容落在光标处。
+- **先写好，再替换。** 保存时先写一份临时文件，确认写完才换掉原文件。写到一半出了问题，原文件也还在。
+- **别人改过，不会被你盖掉。** 保存前会核对文件有没有被其他程序改过或删掉。有的话就停下，让你另存一份，两边的内容都不丢。
+- **没存的有草稿。** MoXi 意外退出，下次打开会问你要不要恢复。
 
-## A few familiar shortcuts
+## 看着舒服
 
-| Action | Shortcut |
+- **日间和夜间两套配色。** 窗口外框和正文一起换，不会一半亮、一半暗。
+- **Windows 11 的亚克力磨砂。** 支持的系统上，窗口背景隐约透出桌面的颜色；关掉了透明效果或开着高对比度，就换成纯色。
+- **中英文混排照顾到了。** 正文用 Segoe UI 配微软雅黑，代码用 Cascadia Code，没有就退回 Consolas。
+
+## 数据留在你电脑上
+
+不用注册，不收集使用数据，MoXi 自己也不联网。编辑器的所有组件都打包在程序里，页面发出的网络请求一律拦下：它只读得到当前文档所在文件夹（含子文件夹）里的图片，碰不到别处的文件，也连不上任何服务器。代价是网络图片不显示。
+
+设置、草稿和窗口位置都存在程序旁边的 `userdata` 文件夹里。所以请把 MoXi 放在你有写入权限的地方，比如自己的文档目录，别放进 Program Files。
+
+## 暂时还做不到
+
+- 一次只开一份文档。已经开着 MoXi 时再打开别的 .md，会在同一个窗口里换过去，有没保存的修改会先问你。
+- 还不能直接粘贴或拖入图片。图片要放在文档所在的文件夹或子文件夹里，用相对路径引用；`../` 开头的上级目录和网络上的图片都不显示。
+- 数学公式和 Mermaid 图表不渲染，在源码里可以照常编辑。
+- 只支持 Windows，单个文件最大 16 MB。
+
+## 开始使用
+
+MoXi 还在早期版本，需要自己构建，步骤见 [CONTRIBUTING.md](CONTRIBUTING.md)。运行需要 [.NET 10 桌面运行时](https://dotnet.microsoft.com/download/dotnet/10.0) 和 Microsoft Edge WebView2 运行时（Windows 11 已经自带）。
+
+想双击 .md 就用 MoXi 打开：在任意 .md 上右键 →「打开方式」→「选择其他应用」，选中 `MoXi.exe` 并设为始终使用。
+
+| 操作 | 快捷键 |
 | --- | --- |
-| Open / save / new file | Ctrl+O / Ctrl+S / Ctrl+N |
-| Find | Ctrl+F |
-| Focus reading | F11 |
-| Edit / source | Ctrl+/ |
-| Document outline | Ctrl+Shift+O |
+| 新建 / 打开 / 保存 / 另存为 | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S |
+| 从阅读进入编辑；编辑与源码互切 | Ctrl+/ |
+| 专注阅读 | F11（Esc 退出） |
+| 查找 | Ctrl+F |
+| 目录 | Ctrl+Shift+O |
+| 插入链接 | Ctrl+K |
+| 缩放 | Ctrl+= / Ctrl+- / Ctrl+0 |
 
-## Open source
+源码以 [MIT 协议](LICENSE) 开放，第三方组件的许可见 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt)。
 
-MoXi is released under the [MIT license](LICENSE). Contributions are welcome — start with [CONTRIBUTING.md](CONTRIBUTING.md).
+[功能一览](FEATURES.md) · [架构说明](docs/DESIGN.md) · [更新记录](CHANGELOG.md) · [参与开发](CONTRIBUTING.md) · [反馈问题](https://github.com/oqpsk/MoXi/issues)
