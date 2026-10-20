@@ -1,0 +1,26 @@
+{
+  "name": "moxi-editor",
+  "version": "0.1.7",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@tiptap/core": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
+    "@tiptap/markdown": "3.32.0",
+    "@tiptap/extension-table": "3.32.0",
+    "@tiptap/extension-list": "3.32.0",
+    "@tiptap/extension-image": "3.32.0",
+    "@tiptap/extension-placeholder": "3.32.0",
+    "dompurify": "3.3.3",
+    "marked": "17.0.6"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "jsdom": "26.1.0"
+  }
+}

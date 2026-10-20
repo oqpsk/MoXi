@@ -1,0 +1,35 @@
+<Window x:Class="Moxi.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:Moxi" xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+ Title="MoXi" Width="1040" Height="780" MinWidth="640" MinHeight="440" WindowStartupLocation="CenterScreen" Background="{DynamicResource Canvas}" Foreground="{DynamicResource Ink}" FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="16" Language="zh-CN" Icon="Assets/MoXi.ico" UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
+ <Border BorderBrush="{DynamicResource WindowStroke}" BorderThickness="1" CornerRadius="12" Background="{DynamicResource WindowSurface}">
+  <Grid><Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <!-- LeXi's 40-DIP bar, rounded corners and 12,4,10,4 control insets. -->
+   <Border x:Name="TitleBar" Background="{DynamicResource TitleSurface}" CornerRadius="11,11,0,0" MouseLeftButtonDown="DragTitle">
+    <Grid>
+     <Grid Margin="12,4,10,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="72"/><ColumnDefinition/></Grid.ColumnDefinitions>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" HorizontalAlignment="Left"><Button x:Name="FocusButton" Click="ToggleFocus" ToolTip="专注阅读 · F11" AutomationProperties.Name="专注阅读 · F11"><Path x:Name="FocusGlyph" Data="M8 4H4V8M16 4H20V8M4 16V20H8M20 16V20H16" Style="{StaticResource IconPath}"/></Button><Button x:Name="ThemeButton" Click="ToggleTheme" ToolTip="切换到日间模式" AutomationProperties.Name="切换到日间模式"><Grid><Path x:Name="SunGlyph" Data="M16 12A4 4 0 1 1 8 12A4 4 0 1 1 16 12 M12 2V4M12 20V22M2 12H4M20 12H22M5 5L6.5 6.5M17.5 17.5L19 19M5 19L6.5 17.5M17.5 6.5L19 5" Style="{StaticResource IconPath}"/><Path Visibility="Collapsed" x:Name="MoonGlyph" Data="M20.5 13.5A8.5 8.5 0 0 1 10.5 3A9 9 0 1 0 20.5 13.5Z" Style="{StaticResource IconPath}"/></Grid></Button><Button x:Name="OutlineButton" Click="ToggleOutline" ToolTip="目录 · Ctrl+Shift+O" AutomationProperties.Name="目录 · Ctrl+Shift+O"><Path Data="M3 4H21V20H3ZM9 4V20M13 8H17M13 12H17M13 16H17" Style="{StaticResource IconPath}"/></Button></StackPanel><TextBlock x:Name="FileName" Grid.Column="1" FontFamily="Cascadia Code, Consolas, Microsoft YaHei UI" FontSize="13" Foreground="{DynamicResource Muted}" Margin="12,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"><Run x:Name="DocumentName" Text="未命名.md"/><Run x:Name="DirtyIndicator" Foreground="{DynamicResource Accent}"/></TextBlock></Grid>
+      <StackPanel Grid.Column="2" HorizontalAlignment="Right" Orientation="Horizontal"><Button Click="Minimize" ToolTip="最小化" AutomationProperties.Name="最小化"><Path Data="M4 12H20" Style="{StaticResource IconPath}"/></Button><Button Click="Maximize" ToolTip="最大化 / 还原" AutomationProperties.Name="最大化 / 还原"><Path Data="M5 5H19V19H5Z" Style="{StaticResource IconPath}"/></Button><Button Click="CloseWindow" ToolTip="关闭" AutomationProperties.Name="关闭"><Path Data="M5 5L19 19M19 5L5 19" Style="{StaticResource IconPath}"/></Button></StackPanel>
+     </Grid>
+     <TextBlock Text="MoXi" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+    </Grid>
+   </Border>
+   <!-- The native bars protect the top/bottom edges; reserve 12 DIP beside the browser HWND. -->
+   <wv:WebView2 x:Name="Browser" Grid.Row="1" Margin="11,0" DefaultBackgroundColor="Transparent"/>
+   <TextBlock x:Name="StartupStatus" Grid.Row="1" Text="正在准备编辑器…" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Muted}"/>
+   <!-- LeXi's native status bar: 14,6 padding, a 32-DIP button and a 24-DIP logo. -->
+   <Border Grid.Row="2" Background="{DynamicResource PanelSurface}" BorderBrush="{DynamicResource WindowStroke}" BorderThickness="0,1,0,0" CornerRadius="0,0,11,11" Padding="14,6">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <Button x:Name="ModeButton" Click="ToggleMode" ToolTip="编辑 → 源码 · Ctrl+/" AutomationProperties.Name="切换编辑与源码"><local:LogoMark/></Button>
+     <TextBlock x:Name="EditorStatus" Grid.Column="1" Text="编辑 · 本地文档" FontSize="13" Margin="10,0,12,0" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" AutomationProperties.LiveSetting="Polite"/>
+     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+      <TextBlock x:Name="CharacterCount" Text="0 字" Style="{StaticResource StatusText}"/>
+      <TextBlock x:Name="FileEncoding" Text="UTF-8" Style="{StaticResource StatusText}"/>
+      <TextBlock x:Name="FileLineEnding" Text="CRLF" Style="{StaticResource StatusText}"/>
+      <Button Click="ZoomOut" ToolTip="缩小 · Ctrl+-" AutomationProperties.Name="缩小 · Ctrl+-"><Path Data="M4 12H20" Style="{StaticResource IconPath}"/></Button>
+      <Button x:Name="ZoomValue" Click="ResetZoom" Content="100%" Width="46" FontSize="13" ToolTip="重置字号 · Ctrl+0" AutomationProperties.Name="重置字号"/>
+      <Button Click="ZoomIn" ToolTip="放大 · Ctrl++" AutomationProperties.Name="放大 · Ctrl++"><Path Data="M4 12H20M12 4V20" Style="{StaticResource IconPath}"/></Button>
+     </StackPanel>
+    </Grid>
+   </Border>
+  </Grid>
+ </Border>
+</Window>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF><AssemblyName>MoXi</AssemblyName>
+    <Product>MoXi</Product><ApplicationIcon>Assets/MoXi.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Moxi.Core/Moxi.Core.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <Content Include="Web/**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../Welcome.md" Link="Welcome.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets/MoXi.png" Link="Welcome.png" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets/MoXi.ico" />
+    <Resource Include="Assets/MoXi.png" />
+  </ItemGroup>
+</Project>
