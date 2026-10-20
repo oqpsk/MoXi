@@ -5,8 +5,10 @@ const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://app.moxi.l
 for (const key of ['window','document','navigator','Node','HTMLElement','Element','MutationObserver','DOMParser','getComputedStyle']) Object.defineProperty(globalThis,key,{configurable:true,value:dom.window[key]});
 globalThis.requestAnimationFrame = fn => setTimeout(fn, 0); globalThis.cancelAnimationFrame = clearTimeout;
 const { Editor } = await import('@tiptap/core');
-const { extensions, unsupportedReason, safePreview, lineEndings, imageSource, roundTripSafe } = await import('../web/editor-core.js');
+const { extensions, unsupportedReason, safePreview, lineEndings, imageSource, roundTripSafe, looksLikeMarkdown, pasteMarkdown, markdownWithInsertion } = await import('../web/editor-core.js');
 function make(text) { return new Editor({ element: document.createElement('div'), extensions: extensions(), content: text, contentType: 'markdown' }); }
+function caret(e, needle, offset = needle.length) { let pos; e.state.doc.descendants((n, p) => { if (pos == null && n.isText && n.text.includes(needle)) pos = p + n.text.indexOf(needle) + offset; }); e.commands.setTextSelection(pos); }
+function paste(e, text) { e.view.dispatch(pasteMarkdown(e, e.state.tr, text)); return e.getMarkdown().trimEnd(); }
 const samples = [
  '# Heading μ\n\nEnglish and 中文 **bold** *italic* ~~strike~~ `code`.',
  '> Quote\n>\n> second paragraph\n\n---\n',
@@ -29,4 +31,31 @@ test('native EOL conversion preserves CRLF and CR',()=> { assert.equal(lineEndin
 test('equivalent mark nesting stays editable while real structure loss stays protected',()=>{
  const e=make('');assert.equal(roundTripSafe(e,'[link](x.md) **[link](x.md)**'),true);
  assert.equal(roundTripSafe(e,'>\n>\n'),false);e.destroy();
+});
+test('a reused parse gives the same round-trip verdict',()=>{
+ const e=make('');for(const s of [...samples,'>\n>\n'])assert.equal(roundTripSafe(e,s,e.markdown.parse(s)),roundTripSafe(e,s),s);e.destroy();
+});
+test('pasted plain text is treated as Markdown only when it carries Markdown syntax',()=>{
+ for(const s of ['## Title','- item','1. first','> quote','| a | b |','```js','run `npm ci`','a **bold** word','[link](x.md)','<kbd>K</kbd>'])assert.equal(looksLikeMarkdown(s),true,s);
+ for(const s of ['Plain sentence, with punctuation.','a - b','3 * 4 = 12','snake_case_name'])assert.equal(looksLikeMarkdown(s),false,s);
+});
+test('pasted Markdown keeps its blocks and joins inline text at the caret',()=>{
+ const text='First paragraph.\n\n- one\n- two\n';
+ let e=make(text);caret(e,'First paragraph.');assert.equal(paste(e,'## Sub\n\n- a\n- b'),'First paragraph.\n\n## Sub\n\n- a\n- b\n\n- one\n- two');e.destroy();
+ e=make(text);caret(e,'First paragraph.',6);assert.equal(paste(e,'## Mid'),'First \n\n## Mid\n\nparagraph.\n\n- one\n- two');e.destroy();
+ e=make(text);caret(e,'First paragraph.',6);assert.equal(paste(e,'use `npm ci` now '),'First use `npm ci` now paragraph.\n\n- one\n- two');e.destroy();
+ e=make(text);caret(e,'First paragraph.');e.commands.splitBlock();assert.equal(paste(e,'### Empty line'),'First paragraph.\n\n### Empty line\n\n- one\n- two');e.destroy();
+});
+test('a list pasted at the end of an item continues the same list',()=>{
+ let e=make('- one\n- two\n');caret(e,'two');assert.equal(paste(e,'- c\n- d'),'- one\n- two\n- c\n- d');e.destroy();
+ e=make('- [ ] task\n');caret(e,'task');assert.equal(paste(e,'- [x] done'),'- [ ] task\n- [x] done');e.destroy();
+});
+test('source-only paste is placed at the caret: inline for one line, as its own block otherwise',()=>{
+ const e=make('First paragraph.\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n');
+ caret(e,'First',5);let r=markdownWithInsertion(e,e.state.selection.from,e.state.selection.to,' <kbd>K</kbd>');
+ assert.equal(r.markdown.slice(0,r.offset),'First <kbd>K</kbd>');assert.match(r.markdown,/^First <kbd>K<\/kbd> paragraph\.\n/);
+ caret(e,'First paragraph.');r=markdownWithInsertion(e,e.state.selection.from,e.state.selection.to,'## H\n\n<b>x</b>\n');
+ assert.equal(r.markdown.slice(0,r.offset),'First paragraph.\n\n## H\n\n<b>x</b>');assert.match(r.markdown.slice(r.offset),/^\n\n\s*\| a/);
+ caret(e,'1');r=markdownWithInsertion(e,e.state.selection.from,e.state.selection.to,'<div>\nblock\n</div>');
+ assert.ok(r.offset>r.markdown.lastIndexOf('|'));assert.match(r.markdown.slice(0,r.offset),/\|\s*\n+<div>\nblock\n<\/div>$/);e.destroy();
 });

@@ -16,6 +16,8 @@ function app() {
  w.eval(script);
  return {w,errors,messages,send:data=>receive({data}),close:()=>{w.moxi.editor.destroy();w.close();}};
 }
+function caret(a,needle){const ed=a.w.moxi.editor;let pos;ed.state.doc.descendants((n,p)=>{if(pos==null&&n.isText&&n.text.includes(needle))pos=p+n.text.indexOf(needle)+needle.length;});ed.commands.setTextSelection(pos);}
+function paste(a,text){const e=new a.w.Event('paste',{bubbles:true,cancelable:true});e.clipboardData={getData:type=>type==='text/plain'?text:''};a.w.moxi.editor.view.dom.dispatchEvent(e);return e;}
 test('full application starts and sends ready without JavaScript errors',()=>{const a=app(); assert.equal(a.messages[0].type,'ready'); assert.deepEqual(a.errors,[]); a.close();});
 test('file opens default to read-only focus; the logo enters editing before switching source',()=>{
  const a=app(),d=a.w.document,text='# Read first\r\n\r\n__Exact bytes__\r\n';
@@ -164,6 +166,34 @@ test('Ctrl+S posts the current text immediately, including during typing debounc
  const a=app(); a.send({type:'load',focus:false,docId:'A',text:'Hello',name:'x.md'}); a.w.moxi.editor.commands.insertContent('Latest ');
  a.w.document.dispatchEvent(new a.w.KeyboardEvent('keydown',{key:'s',ctrlKey:true,bubbles:true,cancelable:true}));
  const msg=a.messages.at(-1); assert.equal(msg.action,'save'); assert.match(msg.text,/Latest/); assert.deepEqual(a.errors,[]); a.close();
+});
+test('typing defers whole-document serialization, while snapshots and saves see the latest text',async()=>{
+ const a=app(),d=a.w.document,ed=()=>a.w.moxi.editor;a.send({type:'load',focus:false,docId:'T',text:'# Notes\n\nText\n',name:'x.md',eol:'\n'});
+ const before=a.messages.length;ed().commands.insertContentAt(ed().state.doc.content.size-1,' more');
+ assert.equal(d.body.classList.contains('dirty'),true);assert.equal(a.messages.slice(before).some(m=>m.type==='changed'),false);
+ a.send({type:'snapshot',requestId:'r'});assert.equal(a.messages.at(-1).text,'# Notes\n\nText more\n');
+ ed().commands.undo();await new Promise(r=>setTimeout(r,400));
+ assert.equal(a.messages.filter(m=>m.type==='changed').at(-1).text,'# Notes\n\nText\n');
+ assert.equal(d.body.classList.contains('dirty'),false);assert.equal(a.messages.at(-1).dirty,false);assert.deepEqual(a.errors,[]);a.close();
+});
+test('pasted Markdown renders as structure and saves as the same Markdown',()=>{
+ const a=app(),d=a.w.document;a.send({type:'load',focus:false,docId:'P',text:'Intro\n',name:'x.md',eol:'\n'});
+ caret(a,'Intro');const e=paste(a,'## Steps\n\n- one\n- **two**\n');
+ assert.equal(e.defaultPrevented,true);assert.ok(d.querySelector('.tiptap h2'));assert.equal(d.querySelectorAll('.tiptap li').length,2);assert.ok(d.querySelector('.tiptap li strong'));
+ assert.equal(a.w.moxi.getText(),'Intro\n\n## Steps\n\n- one\n- **two**\n');assert.equal(a.w.moxi.getMode(),'edit');assert.deepEqual(a.errors,[]);a.close();
+});
+test('source-only paste continues in source view at the caret',()=>{
+ const a=app(),d=a.w.document;a.send({type:'load',focus:false,docId:'Q',text:'First paragraph.\r\n\r\nLast paragraph.\r\n',name:'x.md',eol:'\r\n'});
+ caret(a,'First paragraph.');paste(a,'<details>\nmore\n</details>\n');
+ assert.equal(a.w.moxi.getMode(),'source');assert.equal(a.w.moxi.getText(),'First paragraph.\r\n\r\n<details>\r\nmore\r\n</details>\r\n\r\nLast paragraph.\r\n');
+ const source=d.getElementById('source');assert.equal(d.activeElement,source);
+ assert.equal(source.value.slice(0,source.selectionStart),'First paragraph.\n\n<details>\nmore\n</details>');
+ assert.equal(d.body.classList.contains('dirty'),true);assert.deepEqual(a.errors,[]);a.close();
+});
+test('code blocks receive pasted Markdown as literal text',()=>{
+ const a=app();a.send({type:'load',focus:false,docId:'C',text:'```\ncode\n```\n',name:'x.md',eol:'\n'});
+ caret(a,'code');paste(a,'## not a heading');
+ assert.match(a.w.moxi.getText(),/^```\ncode## not a heading\n```/);assert.equal(a.w.document.querySelector('.tiptap h2'),null);assert.deepEqual(a.errors,[]);a.close();
 });
 test('find highlights every rich match across inline marks and Enter never edits or moves focus',()=>{
  const a=app(),d=a.w.document,text='Alpha **beta** alpha\n\nALPHA beta\n';

@@ -5,6 +5,7 @@
 | Local Markdown files, drag-and-drop and file-path launch | Available |
 | Focus reading, rich-text editing and Markdown source | Available |
 | Headings, emphasis, lists, tasks, quotes, tables and code | Available |
+| Pasted Markdown rendered as formatted text | Available |
 | Document outline, find-all highlighting and text zoom | Available |
 | Day and dark themes; native Acrylic with opaque fallback | Available |
 | Relative local raster images | Available |

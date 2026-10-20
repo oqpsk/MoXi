@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-- Refresh the product overview and contributor documentation.
+- Render pasted Markdown as formatted text in the editing view; a list pasted at the end of an item continues that list, and code blocks still receive literal text.
+- Place pasted syntax that needs source view at the caret, rather than at the end of the document.
+- Keep typing responsive in large documents: whole-document serialization now waits for a pause, a save or a view change, and opening a file parses its Markdown once fewer.
+- Keep the file's original final line break when saving rich-text edits.
+- Refresh the product overview and contributor documentation; rewrite the README in Chinese.
 
 ## 0.1.7
 

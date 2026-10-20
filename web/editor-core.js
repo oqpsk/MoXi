@@ -4,11 +4,53 @@ import { TableKit } from '@tiptap/extension-table';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Fragment, Slice } from '@tiptap/pm/model';
 import { Marked } from 'marked';
 import DOMPurify from 'dompurify';
 
 // Tiptap registers editor-specific tokens on its parser. Keep preview/inspection independent.
 const marked = new Marked({ gfm: true, async: false });
+
+// Plain text with any of these is Markdown: pasted as-is it would render differently after saving.
+const markdownHint = /(?:^|\n)[ \t]{0,3}(?:#{1,6}[ \t]|[-*+][ \t]|\d{1,9}[.)][ \t]|>|```|~~~|\|.*\|)|\*\*\S|__\S|~~\S|`[^`\n]+`|!?\[[^\]\n]*\]\(|<[A-Za-z!/]|\[\^|\[\[|\$\$/;
+export function looksLikeMarkdown(text) { return markdownHint.test(text); }
+
+// Replaces the selection in `tr` with pasted Markdown. A list pasted at the end of an item of the same
+// kind continues that list. Otherwise edge paragraphs join the surrounding text, and other blocks
+// stay whole, splitting the paragraph around them.
+export function pasteMarkdown(editor, tr, text) {
+  const content = editor.schema.nodeFromJSON(editor.markdown.parse(text)).content;
+  if (!content.childCount) return tr.deleteSelection();
+  const { $from, empty } = tr.selection;
+  let item = 0;
+  for (let d = $from.depth; d > 1; d--) if ($from.node(d - 1).type === content.firstChild.type) { item = d; break; }
+  if (item && empty && $from.parentOffset === $from.parent.content.size) {
+    if ($from.parent.content.size) tr.split($from.pos, $from.depth - item + 1);
+    return tr.replaceSelection(Slice.maxOpen(content, false));
+  }
+  const open = node => node.type.name === 'paragraph' ? 1 : 0;
+  return tr.replaceSelection(new Slice(content, open(content.firstChild), open(content.lastChild)));
+}
+
+// Serializes the document with `text` placed at a rich-text range; offset is just after the text.
+// One line stays inline at the caret. Several lines form their own block, after any table holding the caret.
+export function markdownWithInsertion(editor, from, to, text) {
+  const marker = 'MOXIPASTE' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  let tr = editor.state.tr;
+  if (!text.includes('\n')) tr.insertText(marker, from, to);
+  else {
+    const { schema } = editor, block = schema.nodes.paragraph.create(null, schema.text(marker));
+    const $pos = tr.delete(from, to).doc.resolve(from);
+    let table = 0; for (let d = $pos.depth; d > 0; d--) if ($pos.node(d).type.spec.tableRole === 'table') table = d;
+    if (table) tr.insert($pos.after(table), block);
+    else tr.replaceRange(from, from, new Slice(Fragment.from(block), 0, 0));
+    text = text.replace(/\n+$/, '');
+  }
+  const markdown = editor.markdown.serialize(tr.doc.toJSON());
+  const at = markdown.indexOf(marker);
+  if (at < 0) return null;
+  return { markdown: markdown.slice(0, at) + text + markdown.slice(at + marker.length), offset: at + text.length };
+}
 
 export function extensions() {
   return [StarterKit.configure({ underline: false, link: { openOnClick: false, autolink: false } }),
@@ -60,8 +102,8 @@ export function imageSource(src) {
 export function lineEndings(text, eol) { return text.replace(/\r\n|\r|\n/g, eol); }
 export function countCharacters(text) { return [...text.replace(/\s/g, '')].length; }
 
-export function roundTripSafe(editor, text) {
-  const first = editor.markdown.parse(text);
+// `first` may reuse an existing parse of `text`; parsing is the slow part on large documents.
+export function roundTripSafe(editor, text, first = editor.markdown.parse(text)) {
   const next = editor.markdown.parse(editor.markdown.serialize(first));
   // Mark nesting order and object key order do not change Markdown semantics.
   function canonical(value, key = '') {
